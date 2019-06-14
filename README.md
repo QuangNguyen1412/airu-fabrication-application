@@ -12,6 +12,7 @@ https://www.python.org/downloads/
 3. The application has 2 tabs: Programming and Management
 - Programming tab: This tab for programming the AirU board and storing their MAC address to a google spreadsheet-based-database (database).
 - Management tab: We manage devices by pairing every AirU board with PM sensor, then we could have user's information for each device/pair. And all the information (AirU, PM sensor, devices, User's information) will be stored in the database. We can get the device Serial Number printed out
+
 **Programming steps**
 Step 1: Choose the binary you want to program the device
 Step 2: Plug your AirU in, Click 'COM checking' then select your device COM port
