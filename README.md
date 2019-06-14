@@ -8,7 +8,7 @@ https://www.python.org/downloads/
 
 ## User's Guide
 1. Install the required softwares
-2. The executible is in the 7z file, extract and run the executible **main.exe**
+2. The executible is in the main.zip file, extract and run the executible **main.exe**
 3. The application has 2 tabs: Programming and Management
 - Programming tab: This tab for programming the AirU board and storing their MAC address to a google spreadsheet-based-database (database).
 - Management tab: We manage devices by pairing every AirU board with PM sensor, then we could have user's information for each device/pair. And all the information (AirU, PM sensor, devices, User's information) will be stored in the database. We can get the device Serial Number printed out
