@@ -1,0 +1,4 @@
+pyinstaller --onedir --add-data "resources/label/Small.label;." --add-data "scripts/DYMO/LabelPrinter.exe;." main.py
+
+# Via main.spec
+pyinstaller --onedir main.spec

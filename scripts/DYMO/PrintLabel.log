@@ -1,0 +1,8 @@
+﻿  cl : Command line warning D9035 : option 'Gm' has been deprecated and will be removed in a future release
+  PrintLabel.cpp
+C:\Program Files (x86)\DYMO\Dymo_SDK\DLS SDK\Samples\High Level COM\Visual C++ (CommandLine)\PrintLabel.cpp(85,11): warning C4477:  'printf' : format string '%s' requires an argument of type 'char *', but variadic argument 2 has type 'CString'
+C:\Program Files (x86)\DYMO\Dymo_SDK\DLS SDK\Samples\High Level COM\Visual C++ (CommandLine)\PrintLabel.cpp(108,10): warning C4477:  'printf' : format string '%s' requires an argument of type 'char *', but variadic argument 3 has type 'CString'
+C:\Program Files (x86)\DYMO\Dymo_SDK\DLS SDK\Samples\High Level COM\Visual C++ (CommandLine)\PrintLabel.cpp(130,11): warning C4477:  'printf' : format string '%s' requires an argument of type 'char *', but variadic argument 2 has type 'CString'
+C:\Program Files (x86)\DYMO\Dymo_SDK\DLS SDK\Samples\High Level COM\Visual C++ (CommandLine)\PrintLabel.cpp(130,11): warning C4477:  'printf' : format string '%s' requires an argument of type 'char *', but variadic argument 3 has type 'CString'
+C:\Program Files (x86)\DYMO\Dymo_SDK\DLS SDK\Samples\High Level COM\Visual C++ (CommandLine)\PrintLabel.cpp(145,10): warning C4477:  'printf' : format string '%s' requires an argument of type 'char *', but variadic argument 1 has type 'CString'
+  PrintLabel.vcxproj -> C:\Program Files (x86)\DYMO\Dymo_SDK\DLS SDK\Samples\High Level COM\Visual C++ (CommandLine)\Win32\Debug\PrintLabel.exe
