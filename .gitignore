@@ -3,3 +3,4 @@ build/*
 dist/*
 __pycache__/*
 resources/binary/airu-firmware-2.0.bin
+credential/AirUDeviceManager_client_secret.json 
