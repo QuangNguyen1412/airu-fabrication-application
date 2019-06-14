@@ -5,8 +5,7 @@
 http://download.dymo.com/dymo/Software/Win/DLS8Setup.8.7.3.exe
 2. Install python 3.7
 https://www.python.org/downloads/
-3. Install pyseriall
-pip install pyserial
+3. Install pyseriall by typing "pip install pyserial" into the command line
 
 ## User's Guide
 1. Install the required softwares
