@@ -1,0 +1,4 @@
+.idea/flash_gui.iml .idea/misc.xml .idea/modules.xml .idea/vcs.xml .idea/workspace.xml
+build/*
+dist/*
+resources/binary/airu-firmware-2.0.bin
