@@ -16,7 +16,10 @@ import subprocess
 import serial
 import serial.tools.list_ports
 import AirUDeviceManager
+import google
 from PyQt4.QtGui import *
+from PyQt4.QtCore import Qt
+
 from htmlReader import HtmlReaderClass
 
 COMPLETED_STYLE = """
@@ -47,8 +50,9 @@ QProgressBar::chunk {
 """
 
 APP_PATH = os.path.dirname(os.path.realpath(__file__))
-ESPTOOL_PATH = APP_PATH + os.path.sep + 'esptool.py'
 SCRIPTS_PATH = APP_PATH + os.path.sep + 'scripts'
+CREDENTIAL_PATH = APP_PATH + os.path.sep + 'credential'
+ESPTOOL_PATH = SCRIPTS_PATH + os.path.sep + 'esptool.py'
 DYMO_SCRIPT = SCRIPTS_PATH + os.path.sep + "DYMO"
 RESOURCE_LABEL_PATH = APP_PATH + os.path.sep + "resources" + os.path.sep + "label"
 RESOURCE_BIN_PATH = APP_PATH + os.path.sep + "resources" + os.path.sep + "binary"
@@ -160,10 +164,10 @@ class Esp_Tool(object):
                 if not error_raw:
                     break
                 elif (er.find('serial.serialutil') != -1) | (er.find('SerialException') != -1):
-                    msg = QMessageBox()
-                    msg.setIcon(QMessageBox.Information)
-                    msg.setText("Check the USB serial connection!!")
-                    msg.setStandardButtons(QMessageBox.Ok)
+                    # msg = QMessageBox()
+                    # msg.setIcon(QMessageBox.Information)
+                    # msg.setText("Check the USB serial connection!!")
+                    # msg.setStandardButtons(QMessageBox.Ok)
                     print ("Check the USB serial connection")
                     b2.setDisabled(False)
                     progress.setStyleSheet(FAILED_STYLE)
@@ -188,14 +192,12 @@ class Esp_Tool(object):
         b3.setDisabled(False)
 
 class Ui_MainWindow(object):
-    def __init__(self, g_spread_sheet):
+    def __init__(self, device_manager):
         self.ports = list(serial.tools.list_ports.comports())
-        QApplication.setStyle(QStyleFactory.create("Cleanlooks"))
-        # Button definition
         self.com_Choice = "COM0"
-        self.device_manager = AirUDeviceManager.AirUDeviceManagerClass(g_spread_sheet)
+        self.device_manager = device_manager
         self.binary_name = "None"
-        self.fw_version = "None"
+        self.fw_version = "airu-firmware-2.0"
 
     def comport_choice(self, text):
         self.com_Choice = text
@@ -210,7 +212,7 @@ class Ui_MainWindow(object):
         self.progress.setStyleSheet(COMPLETED_STYLE)
         esp = Esp_Tool(self.com_Choice, DEFAULT_BAUDRATE)
         esp.mac_address_print()
-        self.device_manager.update_airu_mac(esp.macAddress_string.upper(), self.fw_version)
+        self.device_manager.insert_new_board(esp.macAddress_string, self.fw_version)
 
     def b1_flashing(self):
         print("flashing")
@@ -218,7 +220,7 @@ class Ui_MainWindow(object):
         esp = Esp_Tool(self.com_Choice, DEFAULT_BAUDRATE)
         esp.Esp_Write_Flash(self.progress, self.b1, self.b2, self.button_print_airu_mac, self.binary_name)
         # esp.mac_address_print()
-        self.device_manager.update_airu_mac(esp.macAddress_string.upper(), self.fw_version)
+        self.device_manager.insert_new_board(esp.macAddress_string.upper(), self.fw_version)
 
     def b2_checking(self):
         print("Checking COM " + self.com_Choice)
@@ -232,7 +234,6 @@ class Ui_MainWindow(object):
             for p in self.ports:
                 print(p)
                 self.comboBox.addItem(p.device)
-                self.comport_choice(p.device)
         else:
             self.comboBox.addItem("No availabe device")
             self.comDescription.setText("No availabe device")
@@ -249,18 +250,13 @@ class Ui_MainWindow(object):
             html_reader = HtmlReaderClass()
             html_reader.get_file(text)
             self.b1.setDisabled(False)
-            self.b2_checking()
 
     def tabOneSetLayout(self):
         html_reader = HtmlReaderClass()
         self.binary_combo_box = QComboBox()
         self.binary_combo_box.addItem("Choose a firmware for flashing")
-        print("data", html_reader.data)
-        for a in html_reader.data:
-            print('>>>>',a)
-            self.binary_combo_box.addItem(a)
+        self.binary_combo_box.addItems(list(html_reader.data))
         self.binary_combo_box.activated[str].connect(self.binary_combo_choice)
-
 
         # progress bar
         self.progress = QProgressBar()
@@ -269,8 +265,8 @@ class Ui_MainWindow(object):
         self.progress.setStyleSheet(COMPLETED_STYLE)
 
         # Button definition
-        self.b1 = QPushButton("Flashing")
-        self.button_print_airu_mac = QPushButton("Print MAC")
+        self.b1 = QPushButton("FW Flashing")
+        self.button_print_airu_mac = QPushButton("MAC Printing")
         self.b2 = QPushButton("COM Checking")
         self.b1.setSizePolicy(
            QSizePolicy.Preferred,
@@ -316,12 +312,12 @@ class Ui_MainWindow(object):
             self.housing_qr_print_btn.setDisabled(False)
 
     def tabTwoSetLayout(self):
-        self.housing_qr_print_btn = QPushButton("Print QR")
+        self.housing_qr_print_btn = QPushButton("Make SN")
         self.housing_qr_print_btn.setSizePolicy(
            QSizePolicy.Preferred,
            QSizePolicy.Expanding)
 
-        self.housing_qr_print_btn.clicked.connect(self.printHousingQR)
+        self.housing_qr_print_btn.clicked.connect(self.makeNewSerial)
         device_mac_lbl = QLabel(self.com_Choice)
         device_mac_lbl.setText("Device MAC address:")
         pm_mac_lbl = QLabel(self.com_Choice)
@@ -341,9 +337,10 @@ class Ui_MainWindow(object):
         self.tab2.setLayout(tab2Vbox)
         self.housing_qr_print_btn.setDisabled(True)
 
-    def printHousingQR(self):
+    def makeNewSerial(self):
         if self.device_mac_input.text() & self.pm_mac_input.text():
             combine_mac = self.device_mac_input.text() + "%20" + self.pm_mac_input.text()
+            self.device_manager.add_new_product(self.device_mac_input.text().upper(), self.pm_mac_input.text().upper())
             print("printing the label " + combine_mac)
             dymo_args = [DYMO_PRINTER_PATH,
             DYMO_PRINTERNAME_OPT,
@@ -353,9 +350,8 @@ class Ui_MainWindow(object):
             DYMO_OBJECTDATA_OPT, "QR=" + self.device_mac_input.text().upper() + "-" + self.pm_mac_input.text().upper(),
             DYMO_LABEL_PATH]
             subprocess.run(dymo_args)
-            self.device_manager.update_housing_qr(self.device_mac_input.text().upper(), self.pm_mac_input.text().upper())
-            self.device_mac_input.clear()
             self.pm_mac_input.clear()
+            self.device_mac_input.clear()
             self.device_mac_input.setFocus()
 
     def window(self):
@@ -369,7 +365,6 @@ class Ui_MainWindow(object):
         self.tab2 = QWidget()
         tab_widget.addTab(self.tab1, "Programming")
         tab_widget.addTab(self.tab2, "Management")
-
         self.tabOneSetLayout()
         self.tabTwoSetLayout()
 
@@ -383,6 +378,74 @@ class Ui_MainWindow(object):
 # End of class
 
 
+class Login(QDialog):
+    def __init__(self, parent=None):
+        super(Login, self).__init__(parent)
+        QApplication.setStyle(QStyleFactory.create("GTK+"))
+        self._jsonFiles = os.listdir(CREDENTIAL_PATH)
+        print("jsons", self._jsonFiles)
+        self._jsonFile = "Choose a Google Account Service JSON"
+        v_layout = QVBoxLayout(self)
+        self._jsonDropDownBoxInit(v_layout)
+        self._acceptButtonInit(v_layout)
+
+    def _jsonFileSelectorFunc(self, text):
+        self._jsonFile = CREDENTIAL_PATH + os.path.sep + text
+
+    def _jsonDropDownBoxInit(self, vbox):
+        json_file_selection = QComboBox()
+        json_file_selection.addItem(self._jsonFile)
+        json_file_selection.addItems(self._jsonFiles)
+        json_file_selection.activated[str].connect(self._jsonFileSelectorFunc)
+        vbox.addWidget(json_file_selection)
+
+    def _acceptButtonFunc(self):
+        try:
+            self.deviceManager = AirUDeviceManager.BigQuerryDbManagerClass(self._jsonFile)
+            self.accept()
+            QMessageBox.information(self, 'Success', 'Logging in')
+        except google.api_core.exceptions.Forbidden as error:
+            self.reject()
+            QMessageBox.critical(self, 'Error', str(error))
+
+    def _acceptButtonInit(self, vbox):
+        self.ok_push_button = QPushButton('OK')
+        self.ok_push_button.clicked.connect(self._acceptButtonFunc)
+        vbox.addWidget(self.ok_push_button, alignment=Qt.AlignHCenter)
+
+    def _label_init(self, hbox):
+        username_label = QLabel()
+        username_label.setText("DB user")
+        pwd_label = QLabel()
+        pwd_label.setText("DB password")
+        hbox.addWidget(pwd_label, 3)
+        hbox.addWidget(username_label, 3)
+
+    def _db_pass_input_init(self, vbox):
+        h_layout = QHBoxLayout(self)
+        vbox.addLayout(h_layout)
+        self.pwd_input = QLineEdit()
+        self.pwd_input.setToolTip("Password")
+        pwd_label = QLabel()
+        pwd_label.setText("DB password")
+        h_layout.addWidget(pwd_label, 3)
+        h_layout.addWidget(self.pwd_input)
+
+    def _db_username_input_init(self, vbox):
+        h_layout = QHBoxLayout(self)
+        vbox.addLayout(h_layout)
+        self.username_input = QLineEdit()
+        self.username_input.setToolTip("DB user")
+        username_label = QLabel()
+        username_label.setText("DB user")
+        h_layout.addWidget(username_label, 3)
+        h_layout.addWidget(self.username_input)
+
+
 if __name__ == '__main__':
-   ui = Ui_MainWindow(AIRU_DEVICE_SHEET)
-   ui.window()
+    app = QApplication(sys.argv)
+    login = Login()
+    if login.exec_() == QDialog.Accepted:
+        mainUi = Ui_MainWindow(login.deviceManager)
+        mainUi.window()
+    app.exec_()

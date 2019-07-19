@@ -66,12 +66,7 @@ class HtmlReaderClass(object):
         # print(mystr)
         parser = MyHTMLParser()
         parser.feed(mystr)
-        self._data = parser.lsComments
+        self._data = list(parser.lsComments)
+        print(self._data)
         return self._data
-
-
-# if __name__ == '__main__':
-#     a = HtmlReaderClass()
-#     a.get_file("airu-firmware-2.0.bin")
-    # print("data", a.data)
 
