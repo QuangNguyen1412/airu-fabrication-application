@@ -312,35 +312,43 @@ class Ui_MainWindow(object):
             self.housing_qr_print_btn.setDisabled(False)
 
     def tabTwoSetLayout(self):
-        self.housing_qr_print_btn = QPushButton("Make SN")
+        self.housing_qr_print_btn = QPushButton("Make new pair")
         self.housing_qr_print_btn.setSizePolicy(
            QSizePolicy.Preferred,
            QSizePolicy.Expanding)
 
         self.housing_qr_print_btn.clicked.connect(self.makeNewSerial)
-        device_mac_lbl = QLabel(self.com_Choice)
+        device_mac_lbl = QLabel()
         device_mac_lbl.setText("Device MAC address:")
-        pm_mac_lbl = QLabel(self.com_Choice)
+        device_owner_lbl = QLabel()
+        device_owner_lbl.setText("Device Owner:")
+        pm_mac_lbl = QLabel()
         pm_mac_lbl.setText("PM sensor MAC address:")
         self.device_mac_input = QLineEdit()
         self.device_mac_input.setToolTip("aa:aa:aa:aa:aa:aa")
+        self.device_owner_input = QLineEdit()
+        self.device_owner_input.setToolTip("abc@gmail.com")
         self.pm_mac_input = QLineEdit()
-        self.pm_mac_input.setMaxLength(20)
+        self.pm_mac_input.setMaxLength(21)
         self.pm_mac_input.setToolTip("PMS5003-201608161931")
         tab2Vbox = QVBoxLayout()
         tab2Vbox.addWidget(device_mac_lbl)
         tab2Vbox.addWidget(self.device_mac_input)
         tab2Vbox.addWidget(pm_mac_lbl)
         tab2Vbox.addWidget(self.pm_mac_input)
+        tab2Vbox.addWidget(device_owner_lbl)
+        tab2Vbox.addWidget(self.device_owner_input)
         tab2Vbox.addWidget(self.housing_qr_print_btn)
         self.device_mac_input.textChanged[str].connect(self.checkMAC)
         self.tab2.setLayout(tab2Vbox)
         self.housing_qr_print_btn.setDisabled(True)
 
     def makeNewSerial(self):
-        if self.device_mac_input.text() & self.pm_mac_input.text():
+        if self.device_mac_input.text() and self.pm_mac_input.text():
             combine_mac = self.device_mac_input.text() + "%20" + self.pm_mac_input.text()
-            self.device_manager.add_new_product(self.device_mac_input.text().upper(), self.pm_mac_input.text().upper())
+            self.device_manager.add_new_product(self.device_mac_input.text().upper(),
+                                                self.pm_mac_input.text().upper(),
+                                                self.device_owner_input.text())
             print("printing the label " + combine_mac)
             dymo_args = [DYMO_PRINTER_PATH,
             DYMO_PRINTERNAME_OPT,
@@ -354,6 +362,68 @@ class Ui_MainWindow(object):
             self.device_mac_input.clear()
             self.device_mac_input.setFocus()
 
+    def tabFourSetLayout(self):
+        print('tabFourSetLayout')
+        self.add_sensor_info_button = QPushButton("Add Sensor info")
+        self.sensor_id_textbox = QLineEdit()
+        self.sensor_id_textbox.setToolTip("PMS3003-2017110805755")
+        hbox1 = QHBoxLayout()
+        hbox2 = QHBoxLayout()
+        hbox2.addWidget(self.sensor_id_textbox)
+        hbox1.addWidget(self.add_sensor_info_button, 3)
+
+    def update_board_info_func(self):
+        print('update_board_info_func')
+        broken = self.brokingTrue.isChecked()
+        available = self.availableTrue.isChecked()
+        mac_address = self.board_mac_textbox.text().upper()
+        print('update board info', mac_address, broken, available)
+        # self.device_manager.update_boards_availability(mac_address, broken=broken,
+        #                                                availability=available)
+        self.board_mac_textbox.clear()
+
+    def tabThreeSetLayout(self):
+        print('tabThreeSetLayout')
+        self.add_board_info_button = QPushButton("Update Board info")
+        self.add_board_info_button.clicked.connect(self.update_board_info_func)
+        self.brokingTrue = QRadioButton("Broken")
+        self.brokingFalse = QRadioButton("Working")
+        self.brokingFalse.setChecked(True)
+        self.availableTrue = QRadioButton("Available")
+        self.availableTrue.setChecked(True)
+        self.availableFalse = QRadioButton("Unavailable")
+        self.class_num = QButtonGroup()
+        self.class_num.addButton(self.availableTrue)
+        self.class_num.addButton(self.availableFalse)
+
+        self.class_num1 = QButtonGroup()
+        self.class_num1.addButton(self.brokingTrue)
+        self.class_num1.addButton(self.brokingFalse)
+
+        board_mac_lbl = QLabel()
+        board_mac_lbl.setText("Board Mac Address:")
+
+        self.add_board_info_button.setSizePolicy(
+            QSizePolicy.Preferred,
+            QSizePolicy.Expanding)
+
+        hbox = QHBoxLayout()
+        vbox = QVBoxLayout()
+        self.board_mac_textbox = QLineEdit()
+        self.board_mac_textbox.setToolTip("30:AE:A4:EF:A9:F4")
+
+        # Add widget to the layout
+        hbox.addWidget(self.add_board_info_button, 3)
+        vbox.addWidget(board_mac_lbl)
+        vbox.addWidget(self.board_mac_textbox)
+        vbox.addWidget(self.brokingFalse)
+        vbox.addWidget(self.brokingTrue)
+        vbox.addWidget(self.availableTrue)
+        vbox.addWidget(self.availableFalse)
+        hbox.addLayout(vbox)
+
+        self.tab3.setLayout(hbox)
+
     def window(self):
         app = QApplication(sys.argv)
         tab_widget = QTabWidget()
@@ -363,15 +433,18 @@ class Ui_MainWindow(object):
         # tab definition
         self.tab1 = QWidget()
         self.tab2 = QWidget()
+        self.tab3 = QWidget()
         tab_widget.addTab(self.tab1, "Programming")
         tab_widget.addTab(self.tab2, "Management")
+        tab_widget.addTab(self.tab3, "Sensors/Boards")
         self.tabOneSetLayout()
         self.tabTwoSetLayout()
+        self.tabThreeSetLayout()
 
         tab_widget.setWindowTitle("AirU Flashing Tool")
         script_dir = os.path.dirname(os.path.realpath(__file__))
         tab_widget.setWindowIcon(QIcon(script_dir + os.path.sep + 'AIRU.png'))
-        tab_widget.resize(450, 200)
+        tab_widget.resize(450, 250)
         tab_widget.show()
         self.device_mac_input.setFocus()
         sys.exit(app.exec_())
