@@ -33,6 +33,7 @@ DATA_SET_ID = 'airu_hw_dataset'
 BOARD_TABLE_ID = 'boards'
 PRODUCT_TABLE_ID = 'products'
 SENSOR_TABLE_ID = 'sensors'
+HISTORY_TABLE_ID = 'pair_history'
 
 boardsSchema = [
     bigquery.SchemaField("mac_addr", "STRING", mode="REQUIRED"),
@@ -304,8 +305,9 @@ class BigQuerryDbManagerClass(object):
         self._boards_table = self._client.get_table(self._client.dataset(DATA_SET_ID).table(BOARD_TABLE_ID))
         self._sensors_table = self._client.get_table(self._client.dataset(DATA_SET_ID).table(SENSOR_TABLE_ID))
         self._products_table = self._client.get_table(self._client.dataset(DATA_SET_ID).table(PRODUCT_TABLE_ID))
+        self._history_table = self._client.get_table(self._client.dataset(DATA_SET_ID).table(HISTORY_TABLE_ID))
 
-    def _update_boards_availability(self, airu_mac, broken=False, availability=True):
+    def update_boards_availability(self, airu_mac, broken=False, availability=True):
         print("update_board_availability")
         query = ('UPDATE `{}.{}.{}` SET broken={}, availability={} WHERE mac_addr="{}"'
                  .format(PROJECT_ID, DATA_SET_ID, BOARD_TABLE_ID, broken, availability, airu_mac))
@@ -313,16 +315,20 @@ class BigQuerryDbManagerClass(object):
         print(query_job.state)
 
     def _check_data_duplication(self, airu_mac):
-        print("_check_available_data", airu_mac)
-        query = ('SELECT * FROM scottgale.airu_hw_dataset.boards WHERE mac_addr="{}"'
-                 .format(airu_mac))
-        query_job = self._client.query(query)
-        rows = query_job.result()
-        # Print row data in tabular format
+        print("_check_data_duplication", airu_mac)
+        rows = self._client.list_rows(self._boards_table, [bigquery.SchemaField("mac_addr", "STRING", mode="REQUIRED")])
         format_string = "{!s:<16} " * len(rows.schema)
+
+        # query = ('SELECT * FROM scottgale.airu_hw_dataset.boards WHERE mac_addr="{}"'
+        #          .format(airu_mac))
+        # query_job = self._client.query(query)
+        # rows = query_job.result()
+        # Print row data in tabular format
+        # format_string = "{!s:<16} " * len(rows.schema)
         for row in rows:
-            print(format_string.format(*row))
-            if airu_mac.find(row[0]) != -1:
+            mac_addr_data = row.get('mac_addr')
+            print(mac_addr_data)
+            if airu_mac.find(mac_addr_data) != -1:
                 print("Found duplication")
                 return True
         return False
@@ -349,17 +355,18 @@ class BigQuerryDbManagerClass(object):
             assert errors == []
 
     def add_new_product(self, airu_mac, sensorid, email=''):
+        print('add_new_product')
         rows = self._client.list_rows(self._products_table, [bigquery.SchemaField("pair_info.mac_addr", "STRING", mode="REQUIRED")])
         format_string = "{!s:<16} " * len(rows.schema)
         for row in rows:
             mac_addr_data = row[0].get('f')[0].get('v')
-            # print(mac_addr_data)
+            print(mac_addr_data)
             if airu_mac.find(mac_addr_data) != -1:
-                print("Found duplication")
+                print("Found airu_mac duplication")
                 return True
-
         rows = self._client.list_rows(self._products_table, [bigquery.SchemaField("serial_number", "STRING", mode="REQUIRED")])
         serial_count = len(list(rows))
+        print(serial_count)
         # Make new serial number
         if serial_count < 9:
             serial_number = "SN000" + str(serial_count + 1)
@@ -369,8 +376,12 @@ class BigQuerryDbManagerClass(object):
             serial_number = "SN0" + str(serial_count)
         else:
             serial_number = "SN" + str(serial_count)
-        self._add_new_product(serial_number, airu_mac, sensorid, email)
-        self.add_sensor_info(sensorid)
+
+        print(serial_number)
+        # self._add_new_product(serial_number, airu_mac, sensorid, email)
+        # self.add_sensor_info(sensorid)
+        # self._product_pair_history(serial_number, airu_mac, sensorid)
+
 
     def _add_new_product(self, serial_number, airu_mac, sensorid, email=''):
         today = datetime.datetime.today()
@@ -408,6 +419,19 @@ class BigQuerryDbManagerClass(object):
             .format(PROJECT_ID, DATA_SET_ID, PRODUCT_TABLE_ID, airu_mac, sensorid, today, serial_number))
         query_job = self._client.query(query)  # API request - starts the query
         print(query_job.state)
+        self._product_pair_history(serial_number, airu_mac, sensorid)
+
+    def _product_pair_history(self, serial_number, airu_mac, sensorid):
+        today = datetime.datetime.today()
+        rows_to_insert = [
+            {
+                "serial_number": serial_number,
+                'mac_addr': airu_mac,
+                'sensor_id': sensorid,
+                'time_stamp': today
+            }
+        ]
+        errors = self._client.insert_rows(self._history_table, rows_to_insert)  # API request
 
     def add_sensor_info(self, sensor_id, broken=False, availability=True):
         print('_add_sensor_info')
@@ -420,15 +444,16 @@ class BigQuerryDbManagerClass(object):
             if sensor_id.find(mac_addr_data) != -1:
                 print("Found duplication")
                 self._update_sensor_info(sensor_id, broken, availability)
-            else:
-                today = datetime.datetime.today()
-                rows_to_insert = [
-                    {'sensor_id': sensor_id,
-                     'broken': broken,
-                     'availability': availability,
-                     'date_update': today}
-                ]
-                errors = self._client.insert_rows(self._sensors_table, rows_to_insert)  # API request
+                return
+        # Loop ends
+        today = datetime.datetime.today()
+        rows_to_insert = [
+            {'sensor_id': sensor_id,
+             'broken': broken,
+             'availability': availability,
+             'date_update': today}
+        ]
+        errors = self._client.insert_rows(self._sensors_table, rows_to_insert)  # API request
 
     def _update_sensor_info(self, sensor_id, broken=False, availability=True):
         print("_update_sensor_info")
@@ -459,7 +484,8 @@ class AuthenticationError(Exception):
 
 if __name__ == '__main__':
     bquerry = BigQuerryDbManagerClass(JSON_PATH)
-    bquerry.add_new_product('31:AE:A4:EF:A9:E4', 'PMS0000002')
+    bquerry.add_new_product('32:AA:A4:EF:A1:32', 'PMS00000321231233')
+    # bquerry._check_data_duplication('31:AE:A4:EF:A9:E9')
     # bquerry.insert_new_board('31:AE:A4:EF:A9:A9', 'airu-version-2.5', True, True)
     # bquerry._update_boards_availability('31:AE:A4:EF:A9:A9', True, False)
     # bquerry.add_sensor_info('PMS0000001', True, False)
