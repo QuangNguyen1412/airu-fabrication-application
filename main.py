@@ -19,6 +19,7 @@ import AirUDeviceManager
 import google
 from PyQt4.QtGui import *
 from PyQt4.QtCore import Qt
+from functools import partial
 
 from htmlReader import HtmlReaderClass
 
@@ -198,6 +199,7 @@ class Ui_MainWindow(object):
         self.device_manager = device_manager
         self.binary_name = "None"
         self.fw_version = "airu-firmware-2.0"
+        self.board_mac_textbox = QLineEdit()
 
     def comport_choice(self, text):
         self.com_Choice = text
@@ -312,7 +314,7 @@ class Ui_MainWindow(object):
             self.housing_qr_print_btn.setDisabled(False)
 
     def tabTwoSetLayout(self):
-        self.housing_qr_print_btn = QPushButton("Make new pair")
+        self.housing_qr_print_btn = QPushButton("Update/Create new pair")
         self.housing_qr_print_btn.setSizePolicy(
            QSizePolicy.Preferred,
            QSizePolicy.Expanding)
@@ -327,7 +329,7 @@ class Ui_MainWindow(object):
         self.device_mac_input = QLineEdit()
         self.device_mac_input.setToolTip("aa:aa:aa:aa:aa:aa")
         self.device_owner_input = QLineEdit()
-        self.device_owner_input.setToolTip("abc@gmail.com")
+        self.device_owner_input.setToolTip("example@gmail.com")
         self.pm_mac_input = QLineEdit()
         self.pm_mac_input.setMaxLength(21)
         self.pm_mac_input.setToolTip("PMS5003-201608161931")
@@ -362,44 +364,77 @@ class Ui_MainWindow(object):
             self.device_mac_input.clear()
             self.device_mac_input.setFocus()
 
+    def _update_sensor_func(self, broking_true, available_true):
+        print('update_sensor_func')
+        broken = broking_true.isChecked()
+        available = available_true.isChecked()
+        mac_address = self.sensor_id_textbox.text().upper()
+        print('update sensor info', mac_address, broken, available)
+        self.device_manager.add_sensor_info(mac_address, broken=broken,
+                                                         availability=available)
+        self.sensor_id_textbox.clear()
+
     def tabFourSetLayout(self):
         print('tabFourSetLayout')
-        self.add_sensor_info_button = QPushButton("Add Sensor info")
-        self.sensor_id_textbox = QLineEdit()
-        self.sensor_id_textbox.setToolTip("PMS3003-2017110805755")
-        hbox1 = QHBoxLayout()
-        hbox2 = QHBoxLayout()
-        hbox2.addWidget(self.sensor_id_textbox)
-        hbox1.addWidget(self.add_sensor_info_button, 3)
+        class_num = QButtonGroup(self.tab4)
+        broking_true = QRadioButton("Broken")
+        class_num.addButton(broking_true, 0)
+        broking_false = QRadioButton("Working")
+        class_num.addButton(broking_false, 1)
+        broking_false.setChecked(True)
 
-    def update_board_info_func(self):
-        print('update_board_info_func')
-        broken = self.brokingTrue.isChecked()
-        available = self.availableTrue.isChecked()
-        mac_address = self.board_mac_textbox.text().upper()
-        print('update board info', mac_address, broken, available)
-        # self.device_manager.update_boards_availability(mac_address, broken=broken,
-        #                                                availability=available)
-        self.board_mac_textbox.clear()
+        class_num1 = QButtonGroup(self.tab4)
+        available_true = QRadioButton("Available")
+        class_num1.addButton(available_true, 0)
+        available_false = QRadioButton("Unavailable")
+        class_num1.addButton(available_false, 1)
+        available_true.setChecked(True)
+
+
+        self.add_sensor_button = QPushButton("Update Sensor info")
+        self.add_sensor_button.clicked.connect(partial(self._update_sensor_func, broking_true, available_true))
+        board_mac_lbl = QLabel()
+        board_mac_lbl.setText("Sensor id:")
+
+        self.add_sensor_button.setSizePolicy(
+            QSizePolicy.Preferred,
+            QSizePolicy.Expanding)
+
+        hbox = QHBoxLayout()
+        vbox = QVBoxLayout()
+        self.sensor_id_textbox = QLineEdit()
+        self.sensor_id_textbox.setToolTip("PMS5003-201608161931")
+
+        # Add widget to the layout
+        hbox.addWidget(self.add_sensor_button, 3)
+        vbox.addWidget(board_mac_lbl)
+        vbox.addWidget(self.sensor_id_textbox)
+        vbox.addWidget(broking_false)
+        vbox.addWidget(broking_true)
+        vbox.addWidget(available_true)
+        vbox.addWidget(available_false)
+        hbox.addLayout(vbox)
+
+        self.tab4.setLayout(hbox)
 
     def tabThreeSetLayout(self):
         print('tabThreeSetLayout')
+        broking_true = QRadioButton("Broken")
+        broking_false = QRadioButton("Working")
+        broking_false.setChecked(True)
+        available_true = QRadioButton("Available")
+        available_true.setChecked(True)
+        available_false = QRadioButton("Unavailable")
+        class_num = QButtonGroup(self.tab3)
+        class_num.addButton(available_true)
+        class_num.addButton(available_false)
+
+        class_num1 = QButtonGroup(self.tab3)
+        class_num1.addButton(broking_true)
+        class_num1.addButton(broking_false)
+
         self.add_board_info_button = QPushButton("Update Board info")
-        self.add_board_info_button.clicked.connect(self.update_board_info_func)
-        self.brokingTrue = QRadioButton("Broken")
-        self.brokingFalse = QRadioButton("Working")
-        self.brokingFalse.setChecked(True)
-        self.availableTrue = QRadioButton("Available")
-        self.availableTrue.setChecked(True)
-        self.availableFalse = QRadioButton("Unavailable")
-        self.class_num = QButtonGroup()
-        self.class_num.addButton(self.availableTrue)
-        self.class_num.addButton(self.availableFalse)
-
-        self.class_num1 = QButtonGroup()
-        self.class_num1.addButton(self.brokingTrue)
-        self.class_num1.addButton(self.brokingFalse)
-
+        self.add_board_info_button.clicked.connect(partial(self._update_board_info_func, broking_true, available_true))
         board_mac_lbl = QLabel()
         board_mac_lbl.setText("Board Mac Address:")
 
@@ -409,20 +444,29 @@ class Ui_MainWindow(object):
 
         hbox = QHBoxLayout()
         vbox = QVBoxLayout()
-        self.board_mac_textbox = QLineEdit()
+
         self.board_mac_textbox.setToolTip("30:AE:A4:EF:A9:F4")
 
         # Add widget to the layout
         hbox.addWidget(self.add_board_info_button, 3)
         vbox.addWidget(board_mac_lbl)
         vbox.addWidget(self.board_mac_textbox)
-        vbox.addWidget(self.brokingFalse)
-        vbox.addWidget(self.brokingTrue)
-        vbox.addWidget(self.availableTrue)
-        vbox.addWidget(self.availableFalse)
+        vbox.addWidget(broking_false)
+        vbox.addWidget(broking_true)
+        vbox.addWidget(available_true)
+        vbox.addWidget(available_false)
         hbox.addLayout(vbox)
-
         self.tab3.setLayout(hbox)
+
+    def _update_board_info_func(self, broking_true, available_true):
+        print('_update_board_info_func')
+        broken = broking_true.isChecked()
+        available = available_true.isChecked()
+        mac_address = self.board_mac_textbox.text().upper()
+        print('update board info', mac_address, broken, available)
+        self.device_manager.update_boards_availability(mac_address, broken=broken,
+                                                       availability=available)
+        self.board_mac_textbox.clear()
 
     def window(self):
         app = QApplication(sys.argv)
@@ -434,12 +478,15 @@ class Ui_MainWindow(object):
         self.tab1 = QWidget()
         self.tab2 = QWidget()
         self.tab3 = QWidget()
+        self.tab4 = QWidget()
         tab_widget.addTab(self.tab1, "Programming")
         tab_widget.addTab(self.tab2, "Management")
-        tab_widget.addTab(self.tab3, "Sensors/Boards")
+        tab_widget.addTab(self.tab3, "Boards")
+        tab_widget.addTab(self.tab4, "Sensors")
         self.tabOneSetLayout()
         self.tabTwoSetLayout()
         self.tabThreeSetLayout()
+        self.tabFourSetLayout()
 
         tab_widget.setWindowTitle("AirU Flashing Tool")
         script_dir = os.path.dirname(os.path.realpath(__file__))
