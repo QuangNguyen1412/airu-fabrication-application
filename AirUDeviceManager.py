@@ -319,12 +319,6 @@ class BigQuerryDbManagerClass(object):
         rows = self._client.list_rows(self._boards_table, [bigquery.SchemaField("mac_addr", "STRING", mode="REQUIRED")])
         format_string = "{!s:<16} " * len(rows.schema)
 
-        # query = ('SELECT * FROM scottgale.airu_hw_dataset.boards WHERE mac_addr="{}"'
-        #          .format(airu_mac))
-        # query_job = self._client.query(query)
-        # rows = query_job.result()
-        # Print row data in tabular format
-        # format_string = "{!s:<16} " * len(rows.schema)
         for row in rows:
             mac_addr_data = row.get('mac_addr')
             print(mac_addr_data)
@@ -356,6 +350,7 @@ class BigQuerryDbManagerClass(object):
 
     def add_new_product(self, airu_mac, sensorid, email=''):
         print('add_new_product')
+        today = datetime.datetime.today()
         rows = self._client.list_rows(self._products_table, [bigquery.SchemaField("pair_info.mac_addr", "STRING", mode="REQUIRED")])
         format_string = "{!s:<16} " * len(rows.schema)
         for row in rows:
@@ -363,6 +358,13 @@ class BigQuerryDbManagerClass(object):
             print(mac_addr_data)
             if airu_mac.find(mac_addr_data) != -1:
                 print("Found airu_mac duplication")
+                print("Updating owner!!")
+                query = (
+                    'UPDATE `{}.{}.{}` SET user_info.email="{}", update_time_stamp="{}" WHERE pair_info.mac_addr="{}" AND pair_info.sensor_id="{}"'
+                    .format(PROJECT_ID, DATA_SET_ID, PRODUCT_TABLE_ID, email, today, airu_mac, sensorid))
+                query_job = self._client.query(query)  # API request - starts the query
+                print(query_job.state)
+
                 return True
         rows = self._client.list_rows(self._products_table, [bigquery.SchemaField("serial_number", "STRING", mode="REQUIRED")])
         serial_count = len(list(rows))
@@ -378,9 +380,9 @@ class BigQuerryDbManagerClass(object):
             serial_number = "SN" + str(serial_count)
 
         print(serial_number)
-        # self._add_new_product(serial_number, airu_mac, sensorid, email)
-        # self.add_sensor_info(sensorid)
-        # self._product_pair_history(serial_number, airu_mac, sensorid)
+        self._add_new_product(serial_number, airu_mac, sensorid, email)
+        self.add_sensor_info(sensorid)
+        self._product_pair_history(serial_number, airu_mac, sensorid)
 
 
     def _add_new_product(self, serial_number, airu_mac, sensorid, email=''):
@@ -484,7 +486,7 @@ class AuthenticationError(Exception):
 
 if __name__ == '__main__':
     bquerry = BigQuerryDbManagerClass(JSON_PATH)
-    bquerry.add_new_product('32:AA:A4:EF:A1:32', 'PMS00000321231233')
+    bquerry.add_new_product('3C:71:BF:15:3B:9C', 'PMS3003-2017110805755', 'ntdquang@gmail.com')
     # bquerry._check_data_duplication('31:AE:A4:EF:A9:E9')
     # bquerry.insert_new_board('31:AE:A4:EF:A9:A9', 'airu-version-2.5', True, True)
     # bquerry._update_boards_availability('31:AE:A4:EF:A9:A9', True, False)
