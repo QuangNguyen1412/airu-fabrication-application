@@ -309,8 +309,9 @@ class BigQuerryDbManagerClass(object):
 
     def update_boards_availability(self, airu_mac, broken=False, availability=True):
         print("update_board_availability")
-        query = ('UPDATE `{}.{}.{}` SET broken={}, availability={} WHERE mac_addr="{}"'
-                 .format(PROJECT_ID, DATA_SET_ID, BOARD_TABLE_ID, broken, availability, airu_mac))
+        today = datetime.datetime.today()
+        query = ('UPDATE `{}.{}.{}` SET broken={}, availability={}, date_update="{}" WHERE mac_addr="{}"'
+                 .format(PROJECT_ID, DATA_SET_ID, BOARD_TABLE_ID, broken, availability, today, airu_mac))
         query_job = self._client.query(query)  # API request - starts the query
         print(query_job.state)
 
@@ -486,7 +487,7 @@ class AuthenticationError(Exception):
 
 if __name__ == '__main__':
     bquerry = BigQuerryDbManagerClass(JSON_PATH)
-    bquerry.add_new_product('3C:71:BF:15:3B:9C', 'PMS3003-2017110805755', 'ntdquang@gmail.com')
+    # bquerry.add_new_product('3C:71:BF:15:3B:9C', 'PMS3003-2017110805755', 'ntdquang@gmail.com')
     # bquerry._check_data_duplication('31:AE:A4:EF:A9:E9')
     # bquerry.insert_new_board('31:AE:A4:EF:A9:A9', 'airu-version-2.5', True, True)
     # bquerry._update_boards_availability('31:AE:A4:EF:A9:A9', True, False)
