@@ -16,7 +16,6 @@ import subprocess
 import serial
 import serial.tools.list_ports
 import AirUDeviceManager
-import google
 from PyQt4.QtGui import *
 from PyQt4.QtCore import Qt
 from functools import partial
@@ -214,7 +213,7 @@ class Ui_MainWindow(object):
         self.progress.setStyleSheet(COMPLETED_STYLE)
         esp = Esp_Tool(self.com_Choice, DEFAULT_BAUDRATE)
         esp.mac_address_print()
-        self.device_manager.insert_new_board(esp.macAddress_string, self.fw_version)
+        self.device_manager.insert_new_board(esp.macAddress_string.upper(), self.fw_version)
 
     def b1_flashing(self):
         print("flashing")
@@ -347,17 +346,18 @@ class Ui_MainWindow(object):
 
     def makeNewSerial(self):
         if self.device_mac_input.text() and self.pm_mac_input.text():
-            combine_mac = self.device_mac_input.text() + "%20" + self.pm_mac_input.text()
-            self.device_manager.add_new_product(self.device_mac_input.text().upper(),
+            combine_mac = self.device_manager.add_new_product(self.device_mac_input.text().upper(),
                                                 self.pm_mac_input.text().upper(),
                                                 self.device_owner_input.text())
+            if combine_mac == -1:
+                return
             print("printing the label " + combine_mac)
             dymo_args = [DYMO_PRINTER_PATH,
             DYMO_PRINTERNAME_OPT,
             DYMO_TRAY_OPT,
             DYMO_COPIES_OPT,
-            DYMO_OBJECTDATA_OPT, "Text=" + combine_mac.upper(),
-            DYMO_OBJECTDATA_OPT, "QR=" + self.device_mac_input.text().upper() + "-" + self.pm_mac_input.text().upper(),
+            DYMO_OBJECTDATA_OPT, "Text=" + combine_mac,
+            DYMO_OBJECTDATA_OPT, "QR=" + combine_mac,
             DYMO_LABEL_PATH]
             subprocess.run(dymo_args)
             self.pm_mac_input.clear()
