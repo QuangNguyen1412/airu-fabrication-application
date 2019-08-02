@@ -356,7 +356,8 @@ class Ui_MainWindow(object):
             DYMO_PRINTERNAME_OPT,
             DYMO_TRAY_OPT,
             DYMO_COPIES_OPT,
-            DYMO_OBJECTDATA_OPT, "Text=" + combine_mac,
+            DYMO_OBJECTDATA_OPT, "Text=" + combine_mac + "\n" +
+                         self.device_mac_input.text().upper() + "\n" + self.pm_mac_input.text().upper(),
             DYMO_OBJECTDATA_OPT, "QR=" + combine_mac,
             DYMO_LABEL_PATH]
             subprocess.run(dymo_args)
