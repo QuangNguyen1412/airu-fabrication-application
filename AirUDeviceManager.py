@@ -98,11 +98,11 @@ class AirUDeviceManagerClass(object):
         i = 0
         max_rows = str(max_rows_int)
         print(max_rows)
-        if max_rows_int < 9:
+        if max_rows_int <= 9:
             serial_number = "SN000" + max_rows
-        elif max_rows_int < 99:
+        elif max_rows_int <= 99:
             serial_number = "SN00" + max_rows
-        elif max_rows_int < 999:
+        elif max_rows_int <= 999:
             serial_number = "SN0" + max_rows
         else:
             serial_number = "SN" + max_rows
