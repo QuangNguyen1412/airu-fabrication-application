@@ -24,6 +24,8 @@ http://download.dymo.com/dymo/Software/Win/DLS8Setup.8.7.3.exe
 - Step 3: Input the sheet that you share
 
 ## Developer's Guide
+- Install PyQt4 to continue the development: https://www.lfd.uci.edu/~gohlke/pythonlibs/#pyqt4
+- Place your API JSON file under ./credential/
 - Use pyinstaller to make the an executible program, then the executible will be under your current directory ./dist/main/main.exe:
 ~~~
 pyinstaller /path/to/your/main.spec

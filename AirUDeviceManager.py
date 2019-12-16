@@ -12,13 +12,13 @@
 
 import gspread
 import os, sys
-import pymongo
-import pprint
+# import pymongo
+# import pprint
 import datetime
 
 from gspread import CellNotFound
 from oauth2client.service_account import ServiceAccountCredentials
-from pymongo import errors
+# from pymongo import errors
 from google.cloud import bigquery
 
 AIRU_DEVICE_SHEET = "AirUDevices"
@@ -144,141 +144,141 @@ class AirUDeviceManagerClass(object):
         # End try
 # End of class
 
-class MongoDbManagerClass(object):
-    def __init__(self, db_user, db_pass):
-        # server.start()
-        authenticate_string = "mongodb+srv://{}:{}@airudevicesmanager-ckvk1.gcp.mongodb.net/test?retryWrites=true&w=majority"
-        myclient = pymongo.MongoClient(authenticate_string.format(db_user, db_pass))
-
-        # myclient = pymongo.MongoClient('127.0.0.1', server.local_bind_port)
-        mydb = myclient[MONGO_DB]
-        try:
-            # mydb.authenticate(db_user, db_pass)
-            self._boardsCollection = mydb.boards
-            self._devicesCollection = mydb.devices
-            self._sensorsCollection = mydb.sensorStatus
-            self.today = datetime.datetime.today()
-            cur = list(self._devicesCollection.find())
-        except errors.OperationFailure:
-            raise AuthenticationError("Login failed " + db_user + "/" + db_pass)
-
-    def _update_boards_availability(self, airu_mac, availability):
-        data = list(self._boardsCollection.find({"mac_addr": airu_mac}))
-        if not data:
-            raise BoardMacAddressNotFound(airu_mac + " Not found")
-        else:
-            self._boardsCollection.update_one({"mac_addr": airu_mac}, {"$set": {"availability": availability}})
-
-    def _update_boards_broken_status(self, airu_mac, broken):
-        data = list(self._boardsCollection.find({"mac_addr": airu_mac}))
-        if not data:
-            raise BoardMacAddressNotFound(airu_mac + " Not found")
-        else:
-            self._boardsCollection.update_one({"mac_addr": airu_mac}, {"$set": {"broken": broken}})
-
-    def update_boards_info(self, airu_mac, fw_ver, broken=False, availability=True):
-        airu_mac = airu_mac.upper()
-        print("Update airU mac" + airu_mac)
-        data = list(self._boardsCollection.find({"mac_addr":airu_mac}))
-        if data:
-            print (data)
-            self._boardsCollection.update_one({"mac_addr":airu_mac},  {"$set": { "fw_version": fw_ver,
-                                                                                 "broken": broken,
-                                                                                 "availability": availability},
-                                                                       "$currentDate": { "date_modified": True } })
-        else:
-            print ("Create new document ", self.today)
-            mydict = {"mac_addr": airu_mac,
-                      "fw_version": fw_ver,
-                      "broken":broken,
-                      "availability": availability,
-                      "date_created": self.today,
-                      "date_modified": self.today}
-            x = self._boardsCollection.insert_one(mydict)
-
-    def update_sensor_info(self, sensor_id, broken=False, availability=True):
-        print("Update sensor_id" + sensor_id)
-        data = list(self._sensorsCollection.find({"sensorid":sensor_id}))
-        if data:
-            print (data)
-            self._sensorsCollection.update_one({"sensorid":sensor_id},  {"$set": {"broken": broken,
-                                                                                  "availability": availability},
-                                                                       "$currentDate": { "date_modified": True }})
-        else:
-            print ("Create new document for sensor", self.today)
-            mydict = {"sensorid": sensor_id,
-                      "broken": broken,
-                      "availability": availability,
-                      "date_created": self.today,
-                      "date_modified": self.today
-                      }
-            x = self._sensorsCollection.insert_one(mydict)
-
-    def _set_pair_owner_email(self, serial, user_email):
-        data = list(self._devicesCollection.find({"serial":serial}))
-        result = self._devicesCollection.update_one({"serial": serial},
-                                           {"$set": {"user_email": user_email,
-                                                     "date_modified": self.today}})
-        if not data:
-            raise SerialNotFound(serial + " Not found")
-
-    ##  Update/Create new board, sensorid pair and other information:
-    #   board mac address
-    #   sensor id
-    #   device serial
-    #   user email
-    def update_board_sensor_pair(self, mac_addr, sensor_id, serial="", user_email=""):
-        print("Update devices, latest record at index 0")
-        data = list(self._devicesCollection.find({"serial":serial}))
-        self.today = datetime.datetime.today()
-        pair_info = {"mac_addr": mac_addr,
-                     "sensorid": sensor_id,
-                     "date_created": self.today}
-        if data:
-            latest_mac = data[0]["history"][0]["mac_addr"]
-            latest_sensor_id = data[0]["history"][0]["sensorid"]
-            if latest_mac != mac_addr:  # remove the latest one since we are updating new one
-                self._update_boards_availability(latest_mac, True)
-
-            if sensor_id != latest_sensor_id:  # remove the latest one since we are updating new one
-                self.update_sensor_info(latest_sensor_id, availability=True)
-
-            print (data)
-            mac = list(self._devicesCollection.find({"history.mac_addr":mac_addr}))
-            sensorid = list(self._devicesCollection.find({"history.sensorid":sensor_id}))
-            if len(mac) > 0 and len(sensorid) > 0:
-                print("Pair is already added, update owner")
-                self._set_pair_owner_email(serial, user_email)
-                return
-            self._devicesCollection.update_one({"serial":serial},
-                                               {"$push": { "history": {"$each":[pair_info],
-                                                                           "$position":0}},
-                                                "$set": {"user_email":user_email,
-                                                         "date_modified": self.today}
-                                                })
-            self._update_boards_availability(mac_addr, False)
-            self.update_sensor_info(sensor_id, availability=False)
-
-        else:
-            print("Making the next serial")
-            serial_count = self._devicesCollection.count();
-            if serial_count < 9:
-                serial_number = "SN000" + str(serial_count+1)
-            elif serial_count < 99:
-                serial_number = "SN00" + str(serial_count)
-            elif serial_count < 999:
-                serial_number = "SN0" + str(serial_count)
-            else:
-                serial_number = "SN" + str(serial_count)
-            print("Made new serial", serial_number)
-            new_serial = {"serial":serial_number,
-                          "history": [pair_info],
-                          "user_email": user_email,
-                          "date_modified": self.today
-                          }
-            x = self._devicesCollection.insert_one(new_serial)
-            self._update_boards_availability(mac_addr, False)
-            self.update_sensor_info(sensor_id, availability=False)
+# class MongoDbManagerClass(object):
+#     def __init__(self, db_user, db_pass):
+#         # server.start()
+#         authenticate_string = "mongodb+srv://{}:{}@airudevicesmanager-ckvk1.gcp.mongodb.net/test?retryWrites=true&w=majority"
+#         myclient = pymongo.MongoClient(authenticate_string.format(db_user, db_pass))
+#
+#         # myclient = pymongo.MongoClient('127.0.0.1', server.local_bind_port)
+#         mydb = myclient[MONGO_DB]
+#         try:
+#             # mydb.authenticate(db_user, db_pass)
+#             self._boardsCollection = mydb.boards
+#             self._devicesCollection = mydb.devices
+#             self._sensorsCollection = mydb.sensorStatus
+#             self.today = datetime.datetime.today()
+#             cur = list(self._devicesCollection.find())
+#         except errors.OperationFailure:
+#             raise AuthenticationError("Login failed " + db_user + "/" + db_pass)
+#
+#     def _update_boards_availability(self, airu_mac, availability):
+#         data = list(self._boardsCollection.find({"mac_addr": airu_mac}))
+#         if not data:
+#             raise BoardMacAddressNotFound(airu_mac + " Not found")
+#         else:
+#             self._boardsCollection.update_one({"mac_addr": airu_mac}, {"$set": {"availability": availability}})
+#
+#     def _update_boards_broken_status(self, airu_mac, broken):
+#         data = list(self._boardsCollection.find({"mac_addr": airu_mac}))
+#         if not data:
+#             raise BoardMacAddressNotFound(airu_mac + " Not found")
+#         else:
+#             self._boardsCollection.update_one({"mac_addr": airu_mac}, {"$set": {"broken": broken}})
+#
+#     def update_boards_info(self, airu_mac, fw_ver, broken=False, availability=True):
+#         airu_mac = airu_mac.upper()
+#         print("Update airU mac" + airu_mac)
+#         data = list(self._boardsCollection.find({"mac_addr":airu_mac}))
+#         if data:
+#             print (data)
+#             self._boardsCollection.update_one({"mac_addr":airu_mac},  {"$set": { "fw_version": fw_ver,
+#                                                                                  "broken": broken,
+#                                                                                  "availability": availability},
+#                                                                        "$currentDate": { "date_modified": True } })
+#         else:
+#             print ("Create new document ", self.today)
+#             mydict = {"mac_addr": airu_mac,
+#                       "fw_version": fw_ver,
+#                       "broken":broken,
+#                       "availability": availability,
+#                       "date_created": self.today,
+#                       "date_modified": self.today}
+#             x = self._boardsCollection.insert_one(mydict)
+#
+#     def update_sensor_info(self, sensor_id, broken=False, availability=True):
+#         print("Update sensor_id" + sensor_id)
+#         data = list(self._sensorsCollection.find({"sensorid":sensor_id}))
+#         if data:
+#             print (data)
+#             self._sensorsCollection.update_one({"sensorid":sensor_id},  {"$set": {"broken": broken,
+#                                                                                   "availability": availability},
+#                                                                        "$currentDate": { "date_modified": True }})
+#         else:
+#             print ("Create new document for sensor", self.today)
+#             mydict = {"sensorid": sensor_id,
+#                       "broken": broken,
+#                       "availability": availability,
+#                       "date_created": self.today,
+#                       "date_modified": self.today
+#                       }
+#             x = self._sensorsCollection.insert_one(mydict)
+#
+#     def _set_pair_owner_email(self, serial, user_email):
+#         data = list(self._devicesCollection.find({"serial":serial}))
+#         result = self._devicesCollection.update_one({"serial": serial},
+#                                            {"$set": {"user_email": user_email,
+#                                                      "date_modified": self.today}})
+#         if not data:
+#             raise SerialNotFound(serial + " Not found")
+#
+#     ##  Update/Create new board, sensorid pair and other information:
+#     #   board mac address
+#     #   sensor id
+#     #   device serial
+#     #   user email
+#     def update_board_sensor_pair(self, mac_addr, sensor_id, serial="", user_email=""):
+#         print("Update devices, latest record at index 0")
+#         data = list(self._devicesCollection.find({"serial":serial}))
+#         self.today = datetime.datetime.today()
+#         pair_info = {"mac_addr": mac_addr,
+#                      "sensorid": sensor_id,
+#                      "date_created": self.today}
+#         if data:
+#             latest_mac = data[0]["history"][0]["mac_addr"]
+#             latest_sensor_id = data[0]["history"][0]["sensorid"]
+#             if latest_mac != mac_addr:  # remove the latest one since we are updating new one
+#                 self._update_boards_availability(latest_mac, True)
+#
+#             if sensor_id != latest_sensor_id:  # remove the latest one since we are updating new one
+#                 self.update_sensor_info(latest_sensor_id, availability=True)
+#
+#             print (data)
+#             mac = list(self._devicesCollection.find({"history.mac_addr":mac_addr}))
+#             sensorid = list(self._devicesCollection.find({"history.sensorid":sensor_id}))
+#             if len(mac) > 0 and len(sensorid) > 0:
+#                 print("Pair is already added, update owner")
+#                 self._set_pair_owner_email(serial, user_email)
+#                 return
+#             self._devicesCollection.update_one({"serial":serial},
+#                                                {"$push": { "history": {"$each":[pair_info],
+#                                                                            "$position":0}},
+#                                                 "$set": {"user_email":user_email,
+#                                                          "date_modified": self.today}
+#                                                 })
+#             self._update_boards_availability(mac_addr, False)
+#             self.update_sensor_info(sensor_id, availability=False)
+#
+#         else:
+#             print("Making the next serial")
+#             serial_count = self._devicesCollection.count();
+#             if serial_count < 9:
+#                 serial_number = "SN000" + str(serial_count+1)
+#             elif serial_count < 99:
+#                 serial_number = "SN00" + str(serial_count)
+#             elif serial_count < 999:
+#                 serial_number = "SN0" + str(serial_count)
+#             else:
+#                 serial_number = "SN" + str(serial_count)
+#             print("Made new serial", serial_number)
+#             new_serial = {"serial":serial_number,
+#                           "history": [pair_info],
+#                           "user_email": user_email,
+#                           "date_modified": self.today
+#                           }
+#             x = self._devicesCollection.insert_one(new_serial)
+#             self._update_boards_availability(mac_addr, False)
+#             self.update_sensor_info(sensor_id, availability=False)
 
 class BigQuerryDbManagerClass(object):
     """ A class to manipulate data from a bigquery infrastructure.
