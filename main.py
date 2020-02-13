@@ -229,9 +229,9 @@ class Ui_MainWindow(object):
         self.comboBox.clear()
         if self.ports:
             index = self.binary_name.find('.bin')
+            self.button_print_airu_mac.setDisabled(False)
             if index != -1:
                 self.b1.setDisabled(False)
-                self.button_print_airu_mac.setDisabled(False)
             for p in self.ports:
                 print(p)
                 self.comboBox.addItem(p.device)
@@ -522,7 +522,7 @@ class Login(QDialog):
 
     def _acceptButtonFunc(self):
         try:
-            self.deviceManager = AirUDeviceManager.BigQuerryDbManagerClass(self._jsonFile)
+            self.deviceManager = AirUDeviceManager.FirestoreManager(self._jsonFile)
             self.accept()
             QMessageBox.information(self, 'Success', 'Logging in')
         except google.api_core.exceptions.Forbidden as error:

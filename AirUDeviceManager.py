@@ -20,6 +20,9 @@ from gspread import CellNotFound
 from oauth2client.service_account import ServiceAccountCredentials
 # from pymongo import errors
 from google.cloud import bigquery
+import firebase_admin
+from firebase_admin import firestore, credentials
+from google.cloud import exceptions
 
 AIRU_DEVICE_SHEET = "AirUDevices"
 TETRA_DEVICES = "Tetra devices"
@@ -33,6 +36,9 @@ BOARD_TABLE_ID = 'boards'
 PRODUCT_TABLE_ID = 'products'
 SENSOR_TABLE_ID = 'sensors'
 HISTORY_TABLE_ID = 'pair_history'
+MAC_ADDRESSES_COLLECTION = 'mac_addresses'
+PM_SENSOR_COLLECTION = 'pm_sensors'
+DEVICE_COLLECTION = 'devices'
 
 boardsSchema = [
     bigquery.SchemaField("mac_addr", "STRING", mode="REQUIRED"),
@@ -306,6 +312,7 @@ class BigQuerryDbManagerClass(object):
         self._products_table = self._client.get_table(self._client.dataset(DATA_SET_ID).table(PRODUCT_TABLE_ID))
         self._history_table = self._client.get_table(self._client.dataset(DATA_SET_ID).table(HISTORY_TABLE_ID))
 
+
     def update_boards_availability(self, airu_mac, broken=False, availability=True):
         print("update_board_availability")
         today = datetime.datetime.today()
@@ -473,6 +480,85 @@ class BigQuerryDbManagerClass(object):
         print(query_job.state)
 
 
+class FirestoreManager(object):
+    def __init__(self, json_key):
+        print(json_key)
+        self._cred = credentials.Certificate(json_key)
+        firebase_admin.initialize_app(self._cred)
+        self._firestore_client = firestore.client()
+        self._mac_address_ref = self._firestore_client.collection(MAC_ADDRESSES_COLLECTION)
+        self._pm_sensor_ref = self._firestore_client.collection(PM_SENSOR_COLLECTION)
+        self._device_ref = self._firestore_client.collection(DEVICE_COLLECTION)
+
+    def insert_new_board(self, airu_mac, fw_version, broken=False, availability=True):
+        doc_ref = self._mac_address_ref.document(airu_mac)
+        today = datetime.datetime.today()
+        doc_ref.set({
+            'fw_ver': fw_version,
+            'hw_ver': fw_version,
+            'broken': broken,
+            'availability': availability,
+            'date_created': today,
+            'mac': airu_mac
+        })
+
+    def add_sensor_info(self, sensor_id, broken=False, availability=True):
+        doc_ref = self._pm_sensor_ref.document(sensor_id)
+        today = datetime.datetime.today()
+        doc_ref.set({
+            'sensor_id': sensor_id,
+            'broken': broken,
+            'availability': availability,
+            'date_created': today,
+        })
+
+    def update_boards_availability(self, airu_mac, broken=False, availability=True):
+        doc_ref = self._mac_address_ref.document(airu_mac)
+        today = datetime.datetime.today()
+        doc_ref.update({
+            'broken': broken,
+            'availability': availability,
+            'date_created': today,
+            'mac': airu_mac
+        })
+
+    def add_new_product(self, airu_mac, sensorid, email=''):
+        print("adding new product")
+        today = datetime.datetime.today()
+        doc_ref = self._device_ref.document(airu_mac)
+        try:
+            doc = doc_ref.get()
+            print(u'Document data: {}'.format(doc.to_dict()))
+            doc_dict = doc.to_dict()
+            ownerHistory = doc_dict["ownerHistory"]
+            ownerHistory.append({
+                    'dateAdopted': today,
+                    'nickname': 'empty',
+                    'ownerID': '/users/' + email
+                    })
+            print(ownerHistory)
+            doc_ref.update({
+                'mac_add': airu_mac,
+                'pms': sensorid,
+                'ownerHistory': ownerHistory
+            })
+            # print(doc_ref)
+        except AttributeError and KeyError and TypeError as error:
+            print(u'No such document!')
+            doc_ref.set({
+                'date_created': today,
+                'mac_add': airu_mac,
+                'pms': sensorid,
+                'ownerHistory': [{
+                    'dateAdopted': today,
+                    'nickname': 'empty',
+                    'ownerID': '/users/' + email
+                }]
+            })
+
+        return airu_mac
+
+
 class SerialNotFound(Exception):
     """ Attribute not found. """
     def __init__(self, message): # real signature unknown
@@ -485,16 +571,22 @@ class BoardMacAddressNotFound(Exception):
         super().__init__(message)
         pass
 
+
 class AuthenticationError(Exception):
     """ Attribute not found. """
     def __init__(self, message): # real signature unknown
         super().__init__(message)
         pass
 
+
 if __name__ == '__main__':
-    bquerry = BigQuerryDbManagerClass(JSON_PATH)
-    bquerry.add_new_product('3C:71:BF:15:3B:9C', 'PMS3003-TESTINTGGGGGG', 'ntdquang1412@gmail.com')
+    # bquerry = BigQuerryDbManagerClass(JSON_PATH)
+    # bquerry.add_new_product('3C:71:BF:15:3B:9C', 'PMS3003-TESTINTGGGGGG', 'ntdquang1412@gmail.com')
     # bquerry._check_data_duplication('31:AE:A4:EF:A9:E9')
     # bquerry.insert_new_board('31:AE:A4:EF:A9:A9', 'airu-version-2.5', True, True)
     # bquerry._update_boards_availability('31:AE:A4:EF:A9:A9', True, False)
     # bquerry.add_sensor_info('PMS0000001', True, False)
+    fireStoreManager = FirestoreManager(CREDENTIAL_PATH + os.path.sep + "sound-proposal-252717-09f0bf451a80.json")
+    # fireStoreManager.insert_new_board("AA:BB:CC:DD:EE:FF", "Wearable", False, True)
+    # fireStoreManager.add_sensor_info("PMS30000003003", False, True)
+    fireStoreManager.add_new_product("AA:BB:CC:DD:EE:FF", "PMS3003123456", 'quang456@test.com')
